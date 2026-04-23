@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BrightChamps Fruit Catcher!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: url('1.png');
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Nunito', sans-serif;
+    overflow: hidden;
+  }
+
+  body::before { display: none; }
+
+  @keyframes twinkle {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+  }
+
+  #game-root {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    padding: 8px;
+    margin-top: -20px;
+  }
+
+  /* HUD */
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(120,80,20,0.3);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+
+  .hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .hud-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(50,50,80,0.75);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .hud-val {
+    font-size: 22px;
+    font-weight: 900;
+    color: #1a0533;
+    text-shadow: none;
+  }
+
+  .hearts-display {
+    display: flex;
+    gap: 6px;
+    font-size: 22px;
+  }
+
+  /* Regen bar */
+  #regen-bar-wrap {
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    max-width: 620px;
+    margin-left: auto;
+    margin-right: auto;
+    display: none;
+  }
+
+  #regen-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b9d, #ff9f43, #ffd32a);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s linear;
+    box-shadow: 0 0 8px rgba(255,200,60,0.7);
+  }
+
+  /* Canvas wrapper */
+  #canvas-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 3px rgba(139,90,43,0.5),
+      0 8px 30px rgba(0,0,0,0.35);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    background: rgba(255,255,255,0.95);
+    cursor: none;
+    border-radius: 8px;
+  }
+
+  /* Overlay screens */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 28px;
+    background: rgba(10,5,30,0.93);
+    backdrop-filter: blur(6px);
+  }
+
+  .screen-emoji {
+    font-size: 60px;
+    margin-bottom: 8px;
+    animation: bounce 0.8s ease infinite alternate;
+  }
+
+  @keyframes bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-8px); }
+  }
+
+  .screen h2 {
+    font-size: 26px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 6px;
+    text-shadow: 0 0 20px rgba(255,220,100,0.5);
+  }
+
+  .screen p {
+    font-size: 14px;
+    color: rgba(200,220,255,0.8);
+    line-height: 1.6;
+    margin-bottom: 18px;
+    max-width: 340px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #ff6b9d, #ff9f43);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 36px;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    box-shadow: 0 4px 20px rgba(255,107,157,0.5);
+    transition: transform 0.15s, box-shadow 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 28px rgba(255,107,157,0.7);
+  }
+
+  .btn-primary:active { transform: scale(0.97); }
+
+  /* Items legend */
+  .legend {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 18px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: rgba(200,220,255,0.9);
+    font-weight: 700;
+  }
+
+  /* Quiz screen */
+  #quiz-screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10,5,30,0.96);
+    backdrop-filter: blur(8px);
+    gap: 10px;
+  }
+
+  #quiz-screen.active { display: flex; }
+
+  .quiz-tag {
+    font-size: 12px;
+    font-weight: 800;
+    color: #ffd32a;
+    background: rgba(255,211,42,0.15);
+    border: 1.5px solid rgba(255,211,42,0.4);
+    border-radius: 20px;
+    padding: 3px 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .quiz-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #ff9f43;
+  }
+
+  #quiz-q {
+    font-size: 16px;
+    font-weight: 700;
+    color: #e8f4ff;
+    line-height: 1.5;
+    text-align: center;
+    max-width: 380px;
+  }
+
+  .q-opts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .q-opt {
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    color: #e8f4ff;
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+
+  .q-opt:hover:not(:disabled) {
+    background: rgba(100,150,255,0.2);
+    border-color: rgba(100,150,255,0.5);
+    transform: translateX(4px);
+  }
+
+  .q-opt.correct {
+    background: rgba(50,210,100,0.25);
+    border-color: #32d464;
+    color: #7effa8;
+  }
+
+  .q-opt.wrong {
+    background: rgba(220,60,60,0.25);
+    border-color: #e05050;
+    color: #ffa0a0;
+  }
+
+  #quiz-msg {
+    font-size: 15px;
+    font-weight: 700;
+    min-height: 22px;
+    text-align: center;
+  }
+
+  /* Life choice screen */
+  #choice-screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    background: rgba(10,5,30,0.95);
+    backdrop-filter: blur(8px);
+    gap: 14px;
+    text-align: center;
+  }
+
+  #choice-screen.active { display: flex; }
+
+  .choice-emoji { font-size: 56px; animation: wobble 1s ease infinite; }
+
+  @keyframes wobble {
+    0%,100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+
+  .choice-title {
+    font-size: 24px;
+    font-weight: 900;
+    color: #fff;
+  }
+
+  .choice-subtitle {
+    font-size: 14px;
+    color: rgba(200,220,255,0.75);
+    line-height: 1.6;
+    max-width: 320px;
+  }
+
+  .choice-btns {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 6px;
+  }
+
+  .btn-quiz {
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 13px 28px;
+    font-size: 15px;
+    font-weight: 800;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(108,92,231,0.5);
+    transition: transform 0.15s;
+  }
+
+  .btn-quiz:hover { transform: scale(1.06); }
+
+  .btn-wait {
+    background: linear-gradient(135deg, #00cec9, #0984e3);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 13px 28px;
+    font-size: 15px;
+    font-weight: 800;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(9,132,227,0.5);
+    transition: transform 0.15s;
+  }
+
+  .btn-wait:hover { transform: scale(1.06); }
+
+  .wait-timer {
+    font-size: 13px;
+    color: rgba(180,220,255,0.8);
+    font-weight: 700;
+  }
+
+  /* Countdown ring */
+  #countdown-wrap {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #countdown-wrap.active { display: flex; }
+
+  .countdown-ring {
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+
+  .countdown-ring svg { transform: rotate(-90deg); }
+
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; }
+  .ring-fill { fill: none; stroke: #ffd32a; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 220; stroke-dashoffset: 220; transition: stroke-dashoffset 0.5s linear; filter: drop-shadow(0 0 6px rgba(255,211,42,0.8)); }
+
+  .countdown-num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 900;
+    color: #ffd32a;
+    text-shadow: 0 0 10px rgba(255,211,42,0.7);
+  }
+</style>
+</head>
+<body>
+<div id="game-root">
+  <div id="hud">
+    <div class="hud-item">
+      <span class="hud-label">Score</span>
+      <span class="hud-val" id="score-val">0</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">Level</span>
+      <span class="hud-val" id="level-val">1</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">Lives</span>
+      <div class="hearts-display" id="hearts-val">❤️ ❤️ ❤️</div>
+    </div>
+  </div>
+
+  <div id="regen-bar-wrap">
+    <div id="regen-bar"></div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="gc" width="600" height="420"></canvas>
+
+    <!-- Start screen -->
+    <div class="screen" id="start-screen">
+      <div class="screen-emoji">🧺</div>
+      <h2>Fruit Catcher! 🍎</h2>
+      <p>Move your basket to catch fruits & gems!<br>Dodge the 💣 bombs — they cost a life!<br>Miss a fruit = lose a life too!</p>
+      <div class="legend">
+        <div class="legend-item">🍎🍊🍋 = 10 pts</div>
+        <div class="legend-item">⭐🍇🍓 = 15 pts</div>
+        <div class="legend-item">💎🌈 = 30 pts</div>
+        <div class="legend-item">💣 = -1 ❤️</div>
+      </div>
+      <button class="btn-primary" id="start-btn">🚀 Let's Play!</button>
+    </div>
+
+    <!-- Life lost / choice screen -->
+    <div id="choice-screen">
+      <div class="choice-emoji">💔</div>
+      <div class="choice-title">All Lives Lost!</div>
+      <div class="choice-subtitle">You can answer a quiz to get a lifeline instantly, or wait <strong>30 seconds</strong> for a free life!</div>
+      <div class="choice-btns">
+        <button class="btn-quiz" id="choice-quiz-btn">🧠 Answer Quiz!</button>
+        <button class="btn-wait" id="choice-wait-btn">⏳ Wait 30s</button>
+      </div>
+      <div id="countdown-wrap">
+        <div class="countdown-ring">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle class="ring-bg" cx="40" cy="40" r="35"/>
+            <circle class="ring-fill" id="ring-fill" cx="40" cy="40" r="35"/>
+          </svg>
+          <div class="countdown-num" id="countdown-num">30</div>
+        </div>
+        <div class="wait-timer">Hang on... ⏰</div>
+      </div>
+    </div>
+
+    <!-- Quiz screen -->
+    <div id="quiz-screen">
+      <span class="quiz-tag" id="quiz-tag-el">HTML Quiz</span>
+      <div class="quiz-title">Answer to get a life! 💪</div>
+      <div id="quiz-q">Question here</div>
+      <div class="q-opts" id="quiz-opts"></div>
+      <div id="quiz-msg"></div>
+    </div>
+
+    <!-- Game over screen -->
+    <div class="screen" id="gameover-screen" style="display:none;">
+      <div class="screen-emoji">🌟</div>
+      <h2>Game Over!</h2>
+      <p id="gameover-msg">Final score: 0 — Level 1</p>
+      <p style="font-size:13px;color:rgba(180,220,255,0.7);margin-bottom:18px;">Great effort! Keep coding! 💻✨</p>
+      <button class="btn-primary" id="restart-btn">Play Again!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+const W = 600, H = 420;
+canvas.width = W; canvas.height = H;
+
+// ===== ITEM TYPES =====
+const TYPES = [
+  { emoji: '🍎', pts: 10, bad: false },
+  { emoji: '🍊', pts: 10, bad: false },
+  { emoji: '🍋', pts: 10, bad: false },
+  { emoji: '🍇', pts: 15, bad: false },
+  { emoji: '🍓', pts: 15, bad: false },
+  { emoji: '🍑', pts: 15, bad: false },
+  { emoji: '🥝', pts: 15, bad: false },
+  { emoji: '🍍', pts: 20, bad: false },
+  { emoji: '🥭', pts: 20, bad: false },
+  { emoji: '⭐', pts: 20, bad: false },
+  { emoji: '💎', pts: 30, bad: false },
+  { emoji: '🌈', pts: 30, bad: false },
+  { emoji: '💣', pts: 0, bad: true },
+];
+
+const QUIZ_POOL = [
+  { tag: 'HTML', q: 'What tag creates a hyperlink?', opts: ['<a>', '<link>', '<href>', '<nav>'], ans: 0 },
+  { tag: 'HTML', q: 'Which attribute makes an element unique?', opts: ['class', 'id', 'name', 'style'], ans: 1 },
+  { tag: 'HTML', q: 'What does <br> do?', opts: ['Bold text', 'Line break', 'Border', 'Button'], ans: 1 },
+  { tag: 'HTML', q: 'Which tag is for a numbered list?', opts: ['<ul>', '<dl>', '<ol>', '<li>'], ans: 2 },
+  { tag: 'CSS', q: 'Which property changes text color?', opts: ['font-color', 'text-color', 'color', 'fill'], ans: 2 },
+  { tag: 'CSS', q: 'How do you make text bold in CSS?', opts: ['font-weight: bold', 'text-weight: bold', 'bold: true', 'font-style: bold'], ans: 0 },
+  { tag: 'CSS', q: 'Which CSS unit is relative to viewport width?', opts: ['px', 'em', 'vw', 'pt'], ans: 2 },
+  { tag: 'CSS', q: 'What property adds space inside a box?', opts: ['margin', 'border', 'padding', 'gap'], ans: 2 },
+  { tag: 'Python', q: 'How do you print in Python?', opts: ['echo("Hi")', 'print("Hi")', 'console.log("Hi")', 'say("Hi")'], ans: 1 },
+  { tag: 'Python', q: 'Which symbol starts a comment in Python?', opts: ['//', '#', '--', '**'], ans: 1 },
+  { tag: 'Python', q: 'What keyword starts a for loop in Python?', opts: ['loop', 'repeat', 'for', 'each'], ans: 2 },
+  { tag: 'Python', q: 'How do you create a list in Python?', opts: ['(1,2,3)', '{1,2,3}', '[1,2,3]', '<1,2,3>'], ans: 2 },
+];
+
+// ===== STATE =====
+let lives, score, level, objects, basketX, animId, gameRunning;
+let fallSpeed, spawnRate, frameCount;
+let waitTimer = null;
+const BASKET_W = 110, BASKET_H = 30, BASKET_Y = H - 36;
+const hits = [];
+let lvlMsg = null;
+
+function heartStr(n) {
+  const filled = ['❤️','❤️','❤️'];
+  const empty = ['🖤','🖤','🖤'];
+  return Array.from({length:3}, (_,i) => i < n ? filled[i] : empty[i]).join(' ');
+}
+
+function initGame() {
+  lives = 3; score = 0; level = 1;
+  objects = []; basketX = W/2;
+  fallSpeed = 2.0; spawnRate = 88; frameCount = 0;
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('level-val').textContent = level;
+  document.getElementById('hearts-val').innerHTML = heartStr(lives);
+}
+
+function spawnObj() {
+  const bombChance = level >= 2 ? 0.18 : 0.1;
+  let t;
+  if (Math.random() < bombChance) {
+    t = TYPES[TYPES.length - 1]; // bomb
+  } else {
+    const goods = TYPES.slice(0, TYPES.length - 1);
+    t = goods[Math.floor(Math.random() * goods.length)];
+  }
+  objects.push({
+    x: 34 + Math.random() * (W - 68),
+    y: -24,
+    type: t,
+    size: 26 + Math.random() * 8,
+    rotation: 0,
+    rotSpeed: (Math.random() - 0.5) * 0.06
+  });
+}
+
+// ===== DRAW FUNCS =====
+const starPositions = Array.from({length:50}, (_,i) => ({
+  x: (i * 97 + 13) % W,
+  y: (i * 71 + 37) % H,
+  r: 0.5 + (i%4)*0.4,
+  speed: 0.15 + (i%5)*0.07
+}));
+
+function drawBg() {
+  // Light white background
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(1, '#ffffff');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // Stars
+  for (let s of starPositions) {
+    const y = (s.y + frameCount * s.speed) % H;
+    ctx.save();
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(frameCount * 0.02 + s.x);
+    ctx.fillStyle = 'rgba(100,80,200,0.4)';
+    ctx.beginPath();
+    ctx.arc(s.x, y, s.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Ground glow
+  const glow = ctx.createLinearGradient(0, H-60, 0, H);
+  glow.addColorStop(0, 'transparent');
+  glow.addColorStop(1, 'rgba(100,80,200,0.06)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, H-60, W, 60);
+}
+
+// Preload basket image
+const basketImg = new Image();
+basketImg.src = '3.png'
+
+function drawBasket(x) {
+  const bx = x - BASKET_W / 2;
+  const bw = BASKET_W + 20;
+  const bh = BASKET_H + 30;
+  if (basketImg.complete && basketImg.naturalWidth > 0) {
+    ctx.drawImage(basketImg, bx - 10, BASKET_Y - 22, bw, bh);
+  } else {
+    // Fallback if image not loaded
+    ctx.save();
+    ctx.fillStyle = "#ff7a3d";
+    ctx.beginPath();
+    ctx.rect(bx, BASKET_Y, BASKET_W, BASKET_H);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawObjects() {
+  for (let o of objects) {
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(o.rotation);
+    ctx.font = `${o.size}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Shadow for depth
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(o.type.emoji, 0, 0);
+    ctx.restore();
+    o.rotation += o.rotSpeed;
+  }
+}
+
+function drawHits() {
+  for (let i = hits.length - 1; i >= 0; i--) {
+    const h = hits[i];
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, h.alpha);
+    ctx.fillStyle = h.color;
+    ctx.font = `bold 15px 'Nunito', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = h.color;
+    ctx.shadowBlur = 8;
+    ctx.fillText(h.text, h.x, h.y - h.dy);
+    ctx.restore();
+    h.dy += 1.8; h.alpha -= 0.035;
+    if (h.alpha <= 0) hits.splice(i, 1);
+  }
+}
+
+function showHit(x, y, color, text) {
+  hits.push({ x, y, text, color, alpha: 1.2, dy: 0 });
+}
+
+function showLevelUp() {
+  lvlMsg = { alpha: 2.0 };
+}
+
+// ===== GAME LOOP =====
+function gameLoop() {
+  if (!gameRunning) return;
+  frameCount++;
+
+  if (frameCount % spawnRate === 0) spawnObj();
+
+  drawBg();
+  drawObjects();
+
+  // Update and check objects
+  let livesLost = false;
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const o = objects[i];
+    o.y += fallSpeed + (level - 1) * 0.3;
+
+    const caught =
+      o.y + o.size/2 > BASKET_Y &&
+      o.y - o.size/2 < BASKET_Y + BASKET_H &&
+      o.x > basketX - BASKET_W/2 - 8 &&
+      o.x < basketX + BASKET_W/2 + 8;
+
+    if (caught) {
+      if (o.type.bad) {
+        lives = Math.max(0, lives - 1);
+        showHit(o.x, o.y, '#ff6b6b', '💣 -1 ❤️');
+      } else {
+        score += o.type.pts;
+        showHit(o.x, o.y, '#ffd32a', '+' + o.type.pts + ' ✨');
+      }
+      objects.splice(i, 1);
+      updateHUD();
+      if (lives === 0) { livesLost = true; }
+      continue;
+    }
+
+    if (o.y > H + 20) {
+      objects.splice(i, 1);
+      if (!o.type.bad) {
+        lives = Math.max(0, lives - 1);
+        showHit(o.x, H - 20, '#ff9f9f', 'Missed! -1 ❤️');
+        updateHUD();
+        if (lives === 0) { livesLost = true; }
+      }
+    }
+  }
+
+  drawHits();
+  drawBasket(basketX);
+
+  if (livesLost) { endLives(); return; }
+
+  // Level up message
+  if (lvlMsg) {
+    lvlMsg.alpha -= 0.015;
+    const a = Math.min(1, lvlMsg.alpha);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#ffd32a';
+    ctx.shadowColor = '#ffd32a';
+    ctx.shadowBlur = 20;
+    ctx.font = `bold 32px 'Nunito', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`⬆️ Level ${level}! ⬆️`, W/2, H/2);
+    ctx.restore();
+    if (lvlMsg.alpha <= 0) lvlMsg = null;
+  }
+
+  // Level progression
+  if (score >= level * 120) {
+    level++;
+    fallSpeed = Math.min(fallSpeed + 0.3, 6);
+    spawnRate = Math.max(42, spawnRate - 8);
+    updateHUD();
+    showLevelUp();
+  }
+
+  animId = requestAnimationFrame(gameLoop);
+}
+
+// ===== LIFE LOST HANDLING =====
+function endLives() {
+  gameRunning = false;
+  cancelAnimationFrame(animId);
+  showChoiceScreen();
+}
+
+function showChoiceScreen() {
+  const cs = document.getElementById('choice-screen');
+  cs.classList.add('active');
+  document.getElementById('countdown-wrap').classList.remove('active');
+}
+
+document.getElementById('choice-quiz-btn').onclick = () => {
+  document.getElementById('choice-screen').classList.remove('active');
+  if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+  showQuiz();
+};
+
+document.getElementById('choice-wait-btn').onclick = () => {
+  document.getElementById('choice-btns') && null;
+  const cw = document.getElementById('countdown-wrap');
+  cw.classList.add('active');
+  document.getElementById('choice-quiz-btn').style.display = 'none';
+  document.getElementById('choice-wait-btn').style.display = 'none';
+
+  let remaining = 30;
+  const ring = document.getElementById('ring-fill');
+  const numEl = document.getElementById('countdown-num');
+  const circumference = 2 * Math.PI * 35; // ~220
+
+  const tick = () => {
+    remaining--;
+    numEl.textContent = remaining;
+    const offset = circumference * (1 - (30 - remaining) / 30);
+    ring.style.strokeDashoffset = offset;
+
+    if (remaining <= 0) {
+      clearInterval(waitTimer);
+      waitTimer = null;
+      document.getElementById('choice-screen').classList.remove('active');
+      document.getElementById('choice-quiz-btn').style.display = '';
+      document.getElementById('choice-wait-btn').style.display = '';
+      lives = 1;
+      updateHUD();
+      gameRunning = true;
+      animId = requestAnimationFrame(gameLoop);
+    }
+  };
+
+  ring.style.strokeDashoffset = circumference;
+  waitTimer = setInterval(tick, 1000);
+};
+
+// ===== QUIZ =====
+function showQuiz() {
+  const qs = document.getElementById('quiz-screen');
+  qs.classList.add('active');
+
+  const picked = QUIZ_POOL[Math.floor(Math.random() * QUIZ_POOL.length)];
+  document.getElementById('quiz-tag-el').textContent = picked.tag + ' Quiz';
+  document.getElementById('quiz-q').textContent = picked.q;
+  document.getElementById('quiz-msg').textContent = '';
+
+  const optsEl = document.getElementById('quiz-opts');
+  optsEl.innerHTML = '';
+
+  picked.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'q-opt';
+    btn.textContent = opt;
+    btn.onclick = () => {
+      optsEl.querySelectorAll('.q-opt').forEach(b => { b.disabled = true; b.style.pointerEvents = 'none'; });
+      const msg = document.getElementById('quiz-msg');
+      if (i === picked.ans) {
+        btn.classList.add('correct');
+        msg.textContent = '🎉 Correct! You earned a life!';
+        msg.style.color = '#7effa8';
+        lives = 1; updateHUD();
+        setTimeout(() => {
+          qs.classList.remove('active');
+          gameRunning = true;
+          animId = requestAnimationFrame(gameLoop);
+        }, 1500);
+      } else {
+        btn.classList.add('wrong');
+        optsEl.querySelectorAll('.q-opt')[picked.ans].classList.add('correct');
+        msg.textContent = '😢 Wrong! Game over!';
+        msg.style.color = '#ffa0a0';
+        setTimeout(() => {
+          qs.classList.remove('active');
+          showGameOver();
+        }, 1800);
+      }
+    };
+    optsEl.appendChild(btn);
+  });
+}
+
+// ===== GAME OVER =====
+function showGameOver() {
+  const go = document.getElementById('gameover-screen');
+  document.getElementById('gameover-msg').textContent = `Final score: ${score} 🏆 — Reached level ${level} 🚀`;
+  go.style.display = 'flex';
+}
+
+document.getElementById('restart-btn').onclick = startGame;
+
+// ===== START =====
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+  document.getElementById('choice-screen').classList.remove('active');
+  document.getElementById('quiz-screen').classList.remove('active');
+  if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+  initGame();
+  gameRunning = true;
+  animId = requestAnimationFrame(gameLoop);
+}
+
+document.getElementById('start-btn').onclick = startGame;
+
+// ===== INPUT =====
+const wrap = document.getElementById('canvas-wrap');
+
+wrap.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  basketX = Math.max(BASKET_W/2, Math.min(W - BASKET_W/2, (e.clientX - r.left) * (W / r.width)));
+});
+
+wrap.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  basketX = Math.max(BASKET_W/2, Math.min(W - BASKET_W/2, (e.touches[0].clientX - r.left) * (W / r.width)));
+}, { passive: false });
+</script>
+</body>
+</html>
